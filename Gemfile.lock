@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    add_to_calendar_links (0.3.1)
+    add_to_calendar_links (0.3.5)
       tzinfo (>= 1.1, < 3)
       tzinfo-data (~> 1.2021)
 
