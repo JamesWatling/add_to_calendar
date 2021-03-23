@@ -253,11 +253,10 @@ module AddToCalendarLinks
       def url_encode_ical(s, strip_html: @strip_html)
         # per https://tools.ietf.org/html/rfc5545#section-3.3.11
         string = s.dup # don't modify original input
-
         if strip_html
           string.gsub!("<br>", "\n")
           string.gsub!("<p>", "\n")
-          string.gsub!("</p>", "\n\n")
+          string.gsub!("</p>", "\n")
           string.gsub!("&amp;", "and")
           string.gsub!("&nbsp;", " ")
           string = strip_html_tags(string)
@@ -270,7 +269,7 @@ module AddToCalendarLinks
           else
             url_encode(e)
           end
-        }.join("\n")
+        }.compact.join("\\n").gsub(/(\\n){2,}/, "\\n\\n").strip
       end
 
       def strip_html_tags(description)
