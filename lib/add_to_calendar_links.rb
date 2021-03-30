@@ -22,7 +22,7 @@ module AddToCalendarLinks
       @url = url
       @description = description
       @add_url_to_description = add_url_to_description
-      @organizer = URI.parse(organizer) if organizer
+      @organizer = organizer if organizer
       @strip_html = strip_html
       @sequence = sequence
       @uid = uid
