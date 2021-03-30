@@ -12,8 +12,8 @@ module AddToCalendarLinks
   class Error < StandardError; end
   
   class URLs
-    attr_accessor :start_datetime, :end_datetime, :title, :timezone, :location, :url, :description, :add_url_to_description, :organizer, :strip_html, :sequence, :last_modified
-    def initialize(start_datetime:, end_datetime: nil, title:, timezone:, location: nil, url: nil, description: nil, add_url_to_description: true, organizer: nil, strip_html: false, sequence: nil, last_modified: Time.now.utc)
+    attr_accessor :start_datetime, :end_datetime, :title, :timezone, :location, :url, :description, :add_url_to_description, :organizer, :strip_html, :sequence, :last_modified, :uid
+    def initialize(start_datetime:, end_datetime: nil, title:, timezone:, location: nil, url: nil, description: nil, add_url_to_description: true, organizer: nil, strip_html: false, sequence: nil, last_modified: Time.now.utc, uid:)
       @start_datetime = start_datetime
       @end_datetime = end_datetime
       @title = title
@@ -25,6 +25,7 @@ module AddToCalendarLinks
       @organizer = URI.parse(organizer) if organizer
       @strip_html = strip_html
       @sequence = sequence
+      @uid = uid
       @last_modified = last_modified
       validate_attributes
     end
@@ -120,8 +121,12 @@ module AddToCalendarLinks
         end
       end
       params[:LOCATION] = strip_html_tags(location) if location
-      params[:UID] = "-#{url}" if url
-      params[:UID] = "-#{utc_datetime(start_datetime)}-#{title}" unless params[:UID] # set uid based on starttime and title only if url is unavailable
+      if uid
+        params[:UID] = uid
+      else
+        params[:UID] = "-#{urlc}" if url
+        params[:UID] = "-#{utc_datetime(start_datetime)}-#{title}" unless params[:UID] # set uid based on starttime and title only if url is unavailable
+      end
       params[:ORGANIZER] = organizer if organizer
       params[:SEQUENCE] = sequence if sequence
       params["LAST-MODIFIED"] = format_date_google(last_modified) if last_modified
@@ -159,8 +164,12 @@ module AddToCalendarLinks
         end
       end
       params[:LOCATION] = url_encode_ical(location) if location
-      params[:UID] = "-#{url_encode(url)}" if url
-      params[:UID] = "-#{utc_datetime(start_datetime)}-#{url_encode_ical(title)}" unless params[:UID] # set uid based on starttime and title only if url is unavailable
+      if uid
+        params[:UID] = uid
+      else
+        params[:UID] = "-#{url_encode(url)}" if url
+        params[:UID] = "-#{utc_datetime(start_datetime)}-#{url_encode_ical(title)}" unless params[:UID] # set uid based on starttime and title only if url is unavailable
+      end
       params[:ORGANIZER] = organizer if organizer
       params[:SEQUENCE] = sequence if sequence
       params["LAST-MODIFIED"] = format_date_google(last_modified) if last_modified
