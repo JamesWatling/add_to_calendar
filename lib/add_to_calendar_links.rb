@@ -100,7 +100,7 @@ module AddToCalendarLinks
     end
 
     def ical_file
-      calendar_url = "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT"
+      calendar_url = "BEGIN:VCALENDAR\nVERSION:2.0\nMETHOD:REQUEST\nBEGIN:VEVENT"
       
       params = {}
       params[:DTSTART] = utc_datetime(start_datetime)
@@ -124,7 +124,7 @@ module AddToCalendarLinks
       params[:UID] = "-#{utc_datetime(start_datetime)}-#{title}" unless params[:UID] # set uid based on starttime and title only if url is unavailable
       params[:ORGANIZER] = organizer if organizer
       params[:SEQUENCE] = sequence if sequence
-      params[:LASTMODIFIED] = format_date_google(last_modified) if last_modified
+      params["LAST-MODIFIED"] = format_date_google(last_modified) if last_modified
       params[:METHOD] = "REQUEST"
 
       params.each do |key, value|
@@ -139,7 +139,7 @@ module AddToCalendarLinks
     def ical_url
       # Downloads a *.ics file provided as a data-uri
       # Eg. "data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART:20200512T123000Z%0ADTEND:20200512T160000Z%0ASUMMARY:Holly%27s%208th%20Birthday%21%0AURL:https%3A%2F%2Fwww.example.com%2Fevent-details%0ADESCRIPTION:Come%20join%20us%20for%20lots%20of%20fun%20%26%20cake%21\\n\\nhttps%3A%2F%2Fwww.example.com%2Fevent-details%0ALOCATION:Flat%204%5C%2C%20The%20Edge%5C%2C%2038%20Smith-Dorrien%20St%5C%2C%20London%5C%2C%20N1%207GU%0AUID:-https%3A%2F%2Fwww.example.com%2Fevent-details%0AEND:VEVENT%0AEND:VCALENDAR"
-      calendar_url = "data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT"
+      calendar_url = "data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0AMETHOD:REQUEST%0ABEGIN:VEVENT"
 
       params = {}
       params[:DTSTART] = utc_datetime(start_datetime)
@@ -163,8 +163,7 @@ module AddToCalendarLinks
       params[:UID] = "-#{utc_datetime(start_datetime)}-#{url_encode_ical(title)}" unless params[:UID] # set uid based on starttime and title only if url is unavailable
       params[:ORGANIZER] = organizer if organizer
       params[:SEQUENCE] = sequence if sequence
-      params[:LASTMODIFIED] = format_date_google(last_modified) if last_modified
-      params[:METHOD] = "REQUEST"
+      params["LAST-MODIFIED"] = format_date_google(last_modified) if last_modified
 
       new_line = "%0A"
       params.each do |key, value|
