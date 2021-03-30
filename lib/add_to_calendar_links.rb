@@ -12,8 +12,8 @@ module AddToCalendarLinks
   class Error < StandardError; end
   
   class URLs
-    attr_accessor :start_datetime, :end_datetime, :title, :timezone, :location, :url, :description, :add_url_to_description, :organizer, :strip_html
-    def initialize(start_datetime:, end_datetime: nil, title:, timezone:, location: nil, url: nil, description: nil, add_url_to_description: true, organizer: nil, strip_html: false)
+    attr_accessor :start_datetime, :end_datetime, :title, :timezone, :location, :url, :description, :add_url_to_description, :organizer, :strip_html, :sequence, :last_modified
+    def initialize(start_datetime:, end_datetime: nil, title:, timezone:, location: nil, url: nil, description: nil, add_url_to_description: true, organizer: nil, strip_html: false, sequence: nil, last_modified: Time.now.utc)
       @start_datetime = start_datetime
       @end_datetime = end_datetime
       @title = title
@@ -24,6 +24,8 @@ module AddToCalendarLinks
       @add_url_to_description = add_url_to_description
       @organizer = URI.parse(organizer) if organizer
       @strip_html = strip_html
+      @sequence = sequence
+      @last_modified = last_modified
       validate_attributes
     end
   
@@ -57,25 +59,28 @@ module AddToCalendarLinks
 
     def yahoo_url
       # Eg. https://calendar.yahoo.com/?v=60&view=d&type=20&title=Holly%27s%208th%20Birthday!&st=20200615T170000Z&dur=0100&desc=Join%20us%20to%20celebrate%20with%20lots%20of%20games%20and%20cake!&in_loc=7%20Apartments,%20London
-      calendar_url = "https://calendar.yahoo.com/?v=60&view=d&type=20"
+      calendar_url = "https://calendar.yahoo.com/?v=60&VIEW=d&TYPE=20"
       params = {}
-      params[:title] = url_encode(title)
-      params[:st] = utc_datetime(start_datetime)
+      params[:TITLE] = url_encode(title)
+      params[:ST] = utc_datetime(start_datetime)
       if end_datetime
+        # params[:ET] = utc_datetime(end_datetime)
         seconds = duration_seconds(start_datetime, end_datetime)
-        params[:dur] = seconds_to_hours_minutes(seconds)
+        params[:DUR] = seconds_to_hours_minutes(seconds)
       else
-        params[:dur] = "0100" 
+        # params[:ET] = utc_datetime(start_datetime + 60*60)
+        params[:DUR] = "0100" 
       end
-      params[:desc] = url_encode(description) if description
+      params[:DESC] = url_encode(strip_html_tags(description)).truncate(3000) if description
+
       if add_url_to_description && url
-        if params[:desc]
-          params[:desc] << url_encode("\n\n#{url}")
+        if params[:DESC]
+          params[:DESC] << url_encode("\n\n#{url}")
         else
-          params[:desc] = url_encode(url)
+          params[:DESC] = url_encode(url)
         end
       end
-      params[:in_loc] = url_encode(location) if location
+      params[:IN_LOC] = url_encode(location) if location
 
       params.each do |key, value|
         calendar_url << "&#{key}=#{value}"
@@ -94,10 +99,48 @@ module AddToCalendarLinks
       microsoft("outlook.com")
     end
 
+    def ical_file
+      calendar_url = "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT"
+      
+      params = {}
+      params[:DTSTART] = utc_datetime(start_datetime)
+      if end_datetime
+        params[:DTEND] = utc_datetime(end_datetime)
+      else
+        params[:DTEND] = utc_datetime(start_datetime + 60*60) # 1 hour later
+      end
+      params[:SUMMARY] = strip_html_tags(title) #ical doesnt support html so remove all markup. Optional for other formats
+      params[:URL] = url if url
+      params[:DESCRIPTION] = strip_html_tags(description).strip if description
+      if add_url_to_description && url
+        if params[:DESCRIPTION]
+          params[:DESCRIPTION] << "\\n\\n#{url}"
+        else
+          params[:DESCRIPTION] = url
+        end
+      end
+      params[:LOCATION] = strip_html_tags(location) if location
+      params[:UID] = "-#{url}" if url
+      params[:UID] = "-#{utc_datetime(start_datetime)}-#{title}" unless params[:UID] # set uid based on starttime and title only if url is unavailable
+      params[:ORGANIZER] = organizer if organizer
+      params[:SEQUENCE] = sequence if sequence
+      params[:LASTMODIFIED] = format_date_google(last_modified) if last_modified
+      params[:METHOD] = "REQUEST"
+
+      params.each do |key, value|
+        calendar_url << "\n#{key}:#{value}"
+      end
+
+      calendar_url << "\nEND:VEVENT\nEND:VCALENDAR"
+
+      return calendar_url
+    end
+
     def ical_url
       # Downloads a *.ics file provided as a data-uri
       # Eg. "data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART:20200512T123000Z%0ADTEND:20200512T160000Z%0ASUMMARY:Holly%27s%208th%20Birthday%21%0AURL:https%3A%2F%2Fwww.example.com%2Fevent-details%0ADESCRIPTION:Come%20join%20us%20for%20lots%20of%20fun%20%26%20cake%21\\n\\nhttps%3A%2F%2Fwww.example.com%2Fevent-details%0ALOCATION:Flat%204%5C%2C%20The%20Edge%5C%2C%2038%20Smith-Dorrien%20St%5C%2C%20London%5C%2C%20N1%207GU%0AUID:-https%3A%2F%2Fwww.example.com%2Fevent-details%0AEND:VEVENT%0AEND:VCALENDAR"
       calendar_url = "data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT"
+
       params = {}
       params[:DTSTART] = utc_datetime(start_datetime)
       if end_datetime
@@ -107,7 +150,7 @@ module AddToCalendarLinks
       end
       params[:SUMMARY] = url_encode_ical(title, strip_html: true) #ical doesnt support html so remove all markup. Optional for other formats
       params[:URL] = url_encode(url) if url
-      params[:DESCRIPTION] = url_encode_ical(description, strip_html: true) if description
+      params[:DESCRIPTION] = url_encode_ical(strip_html_tags(description, line_break_seperator: "\n")) if description
       if add_url_to_description && url
         if params[:DESCRIPTION]
           params[:DESCRIPTION] << "\\n\\n#{url_encode(url)}"
@@ -118,7 +161,10 @@ module AddToCalendarLinks
       params[:LOCATION] = url_encode_ical(location) if location
       params[:UID] = "-#{url_encode(url)}" if url
       params[:UID] = "-#{utc_datetime(start_datetime)}-#{url_encode_ical(title)}" unless params[:UID] # set uid based on starttime and title only if url is unavailable
-      params[:organizer] = organizer if organizer
+      params[:ORGANIZER] = organizer if organizer
+      params[:SEQUENCE] = sequence if sequence
+      params[:LASTMODIFIED] = format_date_google(last_modified) if last_modified
+      params[:METHOD] = "REQUEST"
 
       new_line = "%0A"
       params.each do |key, value|
@@ -254,11 +300,6 @@ module AddToCalendarLinks
         # per https://tools.ietf.org/html/rfc5545#section-3.3.11
         string = s.dup # don't modify original input
         if strip_html
-          string.gsub!("<br>", "\n")
-          string.gsub!("<p>", "\n")
-          string.gsub!("</p>", "\n")
-          string.gsub!("&amp;", "and")
-          string.gsub!("&nbsp;", " ")
           string = strip_html_tags(string)
         end
         string.gsub!("\\", "\\\\\\") # \ >> \\     --yes, really: https://stackoverflow.com/questions/6209480/how-to-replace-backslash-with-double-backslash
@@ -272,8 +313,16 @@ module AddToCalendarLinks
         }.compact.join("\\n").gsub(/(\\n){2,}/, "\\n\\n").strip
       end
 
-      def strip_html_tags(description)
-        description.dup.gsub(/<\/?[^>]*>/, "")
+      def strip_html_tags(description, line_break_seperator: "\\n")
+        string = description.dup
+        string.gsub!("<br>", line_break_seperator)
+        string.gsub!("<p>", line_break_seperator)
+        string.gsub!("</p>", line_break_seperator)
+        string.gsub!("&amp;", "and")
+        string.gsub!("&nbsp;", " ")
+        string.gsub!(/<\/?[^>]*>/, "")
+        string.gsub!(/(\\n){2,}/, "\\n\\n")
+        string.strip
       end
   end
 end
