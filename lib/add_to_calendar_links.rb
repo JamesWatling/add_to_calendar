@@ -133,7 +133,11 @@ module AddToCalendarLinks
       params[:METHOD] = "REQUEST"
 
       params.each do |key, value|
-        calendar_url << "\n#{key}:#{value}"
+        if key == :ORGANIZER
+          calendar_url << "\n#{key}#{value}"
+        else
+          calendar_url << "\n#{key}:#{value}"
+        end
       end
 
       calendar_url << "\nEND:VEVENT\nEND:VCALENDAR"
@@ -176,7 +180,11 @@ module AddToCalendarLinks
 
       new_line = "%0A"
       params.each do |key, value|
-        calendar_url << "#{new_line}#{key}:#{value}"
+        if key == :ORGANIZER
+          calendar_url << "\n#{key}#{value}"
+        else
+          calendar_url << "\n#{key}:#{value}"
+        end
       end
 
       calendar_url << "%0AEND:VEVENT%0AEND:VCALENDAR"
@@ -329,6 +337,7 @@ module AddToCalendarLinks
         string.gsub!("&amp;", "and")
         string.gsub!("&nbsp;", " ")
         string.gsub!(/<\/?[^>]*>/, "")
+        string.gsub!(/\n/, "\\n")
         string.gsub!(/(\\n){2,}/, "\\n\\n")
         string.strip
       end
