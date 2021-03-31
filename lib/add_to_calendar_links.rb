@@ -112,6 +112,7 @@ module AddToCalendarLinks
       end
       params[:SUMMARY] = strip_html_tags(title) #ical doesnt support html so remove all markup. Optional for other formats
       params[:URL] = url if url
+      description.gsub!(/\n/, "\\n")
       params[:DESCRIPTION] = strip_html_tags(description).strip if description
       if add_url_to_description && url
         if params[:DESCRIPTION]
@@ -337,7 +338,6 @@ module AddToCalendarLinks
         string.gsub!("&amp;", "and")
         string.gsub!("&nbsp;", " ")
         string.gsub!(/<\/?[^>]*>/, "")
-        string.gsub!(/\n/, "\\n")
         string.gsub!(/(\\n){2,}/, "\\n\\n")
         string.strip
       end
